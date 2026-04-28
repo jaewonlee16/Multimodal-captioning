@@ -3,6 +3,7 @@ import VideoUploader from './components/VideoUploader'
 import VideoWithCaptions from './components/VideoWithCaptions'
 import CaptionDisplay from './components/CaptionDisplay'
 import Transcript from './components/Transcript'
+import FaceRegistration from './components/FaceRegistration'
 import { analyzeVideo, translateTranscript } from './api/gemini'
 import { buildColorMap } from './utils/speakerColors'
 
@@ -13,6 +14,7 @@ export default function App() {
   const [analyzeError, setAnalyzeError] = useState('')
   const [currentTime, setCurrentTime] = useState(0)
   const [mode, setMode] = useState('live') // 'live' | 'onvideo' | 'transcript'
+  const [registeredFaces, setRegisteredFaces] = useState([])
   const [targetLang, setTargetLang] = useState('English')
   const [translatedTranscript, setTranslatedTranscript] = useState(null)
   const [translating, setTranslating] = useState(false)
@@ -33,6 +35,7 @@ export default function App() {
       const segments = await analyzeVideo(
         uploadResult.geminiFile.uri,
         uploadResult.geminiFile.mimeType,
+        registeredFaces,
       )
       setTranscript(segments)
       setTranslatedTranscript(null)
@@ -68,6 +71,7 @@ export default function App() {
     setMode('live')
     setTranslatedTranscript(null)
     setTranslateError('')
+    setRegisteredFaces([])
   }
 
   return (
@@ -92,12 +96,15 @@ export default function App() {
           />
 
           {!transcript && !analyzing && (
-            <div style={styles.analyzeRow}>
-              <button style={styles.analyzeBtn} onClick={handleAnalyze}>
-                Analyze speakers
-              </button>
-              {analyzeError && <p style={styles.errorText}>{analyzeError}</p>}
-            </div>
+            <>
+              <FaceRegistration faces={registeredFaces} onChange={setRegisteredFaces} />
+              <div style={styles.analyzeRow}>
+                <button style={styles.analyzeBtn} onClick={handleAnalyze}>
+                  Analyze speakers
+                </button>
+                {analyzeError && <p style={styles.errorText}>{analyzeError}</p>}
+              </div>
+            </>
           )}
 
           {analyzing && (

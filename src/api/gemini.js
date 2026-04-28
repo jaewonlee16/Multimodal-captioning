@@ -137,20 +137,34 @@ Return the result as a JSON array matching the provided schema.`
 
 /**
  * Send an already-uploaded Gemini file for speaker-attributed transcription.
- * Returns a parsed array of { start, end, speaker, text } segments.
+ * registeredFaces: optional array of { name, mimeType, base64 } for named identification.
+ * Returns a parsed array of { start, end, speaker, text, position } segments.
  */
-export async function analyzeVideo(fileUri, mimeType) {
+export async function analyzeVideo(fileUri, mimeType, registeredFaces = []) {
   const model = 'gemini-3.1-pro-preview'
 
+  const parts = []
+
+  // Prepend face identity pairs so Gemini learns names before watching the video
+  if (registeredFaces.length > 0) {
+    const preamble =
+      'The following speakers have been pre-identified. When you see one of them in the video, ' +
+      'use their exact name as the "speaker" value — do not use a positional label like ' +
+      '"left person" for them. If a person in the video does not match any registered face, ' +
+      'fall back to a positional label ("left person", "right person", "center person").'
+    parts.push({ text: preamble })
+
+    for (const face of registeredFaces) {
+      parts.push({ inlineData: { mimeType: face.mimeType, data: face.base64 } })
+      parts.push({ text: `The person in the image above is ${face.name}.` })
+    }
+  }
+
+  parts.push({ fileData: { mimeType, fileUri } })
+  parts.push({ text: TRANSCRIPT_PROMPT })
+
   const body = {
-    contents: [
-      {
-        parts: [
-          { fileData: { mimeType, fileUri } },
-          { text: TRANSCRIPT_PROMPT },
-        ],
-      },
-    ],
+    contents: [{ parts }],
     generationConfig: {
       responseMimeType: 'application/json',
       responseSchema: TRANSCRIPT_SCHEMA,
