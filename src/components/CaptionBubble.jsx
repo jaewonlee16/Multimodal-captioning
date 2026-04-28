@@ -7,27 +7,38 @@ export default function CaptionBubble({ seg, currentTime, color }) {
   const x = seg.position?.x ?? 0.5
   const y = seg.position?.y ?? 0.5
 
-  // Flip bubble below the face when speaker is in the top quarter of the frame
+  // Clamp face position so the bubble stays on-screen
+  const clampedX = Math.max(0.15, Math.min(0.85, x))
   const flipBelow = y < 0.25
 
-  // X-axis anchor: near left → don't translate left; near right → don't translate right
-  let translateX = '-50%'
-  if (x < 0.15) translateX = '-8px'
-  else if (x > 0.85) translateX = 'calc(-100% + 8px)'
+  // Offset bubble diagonally away from the face so it doesn't cover it.
+  // translateX is relative to the bubble's own width (-50% = centered on face).
+  // Left speakers  → bubble shifts left  → triangle on bubble's right  → points right-down at face
+  // Right speakers → bubble shifts right → triangle on bubble's left   → points left-down at face
+  // Center         → bubble centered     → triangle at bottom-center   → points straight down
+  let translateX, triangleLeft
+  if (x < 0.38) {
+    translateX = '-72%'   // shift bubble left of face
+    triangleLeft = '76%'  // triangle near right edge of bubble
+  } else if (x > 0.62) {
+    translateX = '-28%'   // shift bubble right of face
+    triangleLeft = '24%'  // triangle near left edge of bubble
+  } else {
+    translateX = '-50%'   // centered above face
+    triangleLeft = '50%'
+  }
 
-  // Triangle horizontal position mirrors the anchor offset
-  let triangleLeft = '50%'
-  if (x < 0.15) triangleLeft = '12px'
-  else if (x > 0.85) triangleLeft = 'calc(100% - 20px)'
+  // Generous vertical clearance so the bubble clears the head
+  const translateY = flipBelow ? '20%' : '-140%'
 
   return (
     <div
       style={{
         position: 'absolute',
-        left: `${Math.max(0, Math.min(1, x)) * 100}%`,
-        top: `${Math.max(0, Math.min(1, y)) * 100}%`,
-        transform: `translate(${translateX}, ${flipBelow ? '10%' : '-110%'})`,
-        maxWidth: 220,
+        left: `${clampedX * 100}%`,
+        top: `${y * 100}%`,
+        transform: `translate(${translateX}, ${translateY})`,
+        maxWidth: 210,
         zIndex: 10,
         pointerEvents: 'none',
       }}
@@ -70,7 +81,7 @@ export default function CaptionBubble({ seg, currentTime, color }) {
         </p>
       </div>
 
-      {/* Triangle pointer toward speaker's face */}
+      {/* Triangle pointer aimed back at the speaker's face */}
       <div
         style={{
           position: 'absolute',
