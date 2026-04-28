@@ -100,12 +100,21 @@ const TRANSCRIPT_SCHEMA = {
   items: {
     type: 'OBJECT',
     properties: {
-      start:   { type: 'NUMBER',  description: 'Segment start time in seconds' },
-      end:     { type: 'NUMBER',  description: 'Segment end time in seconds' },
-      speaker: { type: 'STRING',  description: 'Speaker label (e.g. "left person", "Alice")' },
-      text:    { type: 'STRING',  description: 'Verbatim spoken text for this segment' },
+      start:   { type: 'NUMBER', description: 'Segment start time in seconds' },
+      end:     { type: 'NUMBER', description: 'Segment end time in seconds' },
+      speaker: { type: 'STRING', description: 'Speaker label (e.g. "left person", "Alice")' },
+      text:    { type: 'STRING', description: 'Verbatim spoken text for this segment' },
+      position: {
+        type: 'OBJECT',
+        description: 'Approximate center of the speaker\'s face/upper-body in the frame',
+        properties: {
+          x: { type: 'NUMBER', description: 'Horizontal position: 0.0 = left edge, 1.0 = right edge' },
+          y: { type: 'NUMBER', description: 'Vertical position: 0.0 = top edge, 1.0 = bottom edge' },
+        },
+        required: ['x', 'y'],
+      },
     },
-    required: ['start', 'end', 'speaker', 'text'],
+    required: ['start', 'end', 'speaker', 'text', 'position'],
   },
 }
 
@@ -119,6 +128,8 @@ question mark, exclamation mark). Never put two sentences in a single entry.
 or by name if visible (name tag, on-screen text, or self-introduction).
 - Record the start and end time in seconds (decimals allowed) for that single sentence.
 - Transcribe the spoken text verbatim.
+- Estimate the speaker's face/upper-body center as normalized (x, y) coordinates: \
+x=0.0 is the left edge, x=1.0 is the right edge; y=0.0 is the top edge, y=1.0 is the bottom edge.
 - If two people speak simultaneously, emit two separate entries with overlapping timestamps.
 - Omit silent segments entirely.
 

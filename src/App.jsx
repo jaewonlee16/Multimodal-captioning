@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo } from 'react'
 import VideoUploader from './components/VideoUploader'
+import VideoWithCaptions from './components/VideoWithCaptions'
 import CaptionDisplay from './components/CaptionDisplay'
 import Transcript from './components/Transcript'
 import { analyzeVideo } from './api/gemini'
@@ -11,7 +12,7 @@ export default function App() {
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeError, setAnalyzeError] = useState('')
   const [currentTime, setCurrentTime] = useState(0)
-  const [mode, setMode] = useState('live') // 'live' | 'transcript'
+  const [mode, setMode] = useState('live') // 'live' | 'onvideo' | 'transcript'
   const videoRef = useRef()
 
   const colorMap = useMemo(
@@ -57,12 +58,14 @@ export default function App() {
         <VideoUploader onUploadComplete={setUploadResult} />
       ) : (
         <div style={styles.main}>
-          <video
-            ref={videoRef}
+          <VideoWithCaptions
             src={uploadResult.localUrl}
-            controls
-            style={styles.video}
+            videoRef={videoRef}
             onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
+            segments={transcript}
+            currentTime={currentTime}
+            colorMap={colorMap}
+            showOverlay={mode === 'onvideo' && !!transcript}
           />
 
           {!transcript && !analyzing && (
@@ -87,13 +90,14 @@ export default function App() {
             <>
               <ModeToggle mode={mode} onChange={setMode} onReanalyze={() => { setTranscript(null); setAnalyzeError('') }} />
 
-              {mode === 'live' ? (
+              {mode === 'live' && (
                 <CaptionDisplay
                   segments={transcript}
                   currentTime={currentTime}
                   colorMap={colorMap}
                 />
-              ) : (
+              )}
+              {mode === 'transcript' && (
                 <Transcript
                   segments={transcript}
                   currentTime={currentTime}
@@ -116,18 +120,19 @@ function ModeToggle({ mode, onChange, onReanalyze }) {
   return (
     <div style={styles.toggleRow}>
       <div style={styles.toggle}>
-        <button
-          style={{ ...styles.tab, ...(mode === 'live' ? styles.tabActive : {}) }}
-          onClick={() => onChange('live')}
-        >
-          Live Captions
-        </button>
-        <button
-          style={{ ...styles.tab, ...(mode === 'transcript' ? styles.tabActive : {}) }}
-          onClick={() => onChange('transcript')}
-        >
-          Full Transcript
-        </button>
+        {[
+          { key: 'live',       label: 'Live Captions' },
+          { key: 'onvideo',    label: 'On Video' },
+          { key: 'transcript', label: 'Full Transcript' },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            style={{ ...styles.tab, ...(mode === key ? styles.tabActive : {}) }}
+            onClick={() => onChange(key)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
       <button style={styles.reanalyzeBtn} onClick={onReanalyze}>
         Re-analyze
@@ -163,12 +168,6 @@ const styles = {
     alignItems: 'center',
     gap: 20,
     padding: '32px 0',
-  },
-  video: {
-    width: '100%',
-    maxWidth: 640,
-    borderRadius: 12,
-    background: '#000',
   },
   analyzeRow: {
     display: 'flex',
