@@ -3,7 +3,7 @@ import VideoUploader from './components/VideoUploader'
 import VideoWithCaptions from './components/VideoWithCaptions'
 import CaptionDisplay from './components/CaptionDisplay'
 import Transcript from './components/Transcript'
-import { analyzeVideo } from './api/gemini'
+import { analyzeVideo, translateTranscript } from './api/gemini'
 import { buildColorMap } from './utils/speakerColors'
 
 export default function App() {
@@ -13,12 +13,18 @@ export default function App() {
   const [analyzeError, setAnalyzeError] = useState('')
   const [currentTime, setCurrentTime] = useState(0)
   const [mode, setMode] = useState('live') // 'live' | 'onvideo' | 'transcript'
+  const [targetLang, setTargetLang] = useState('English')
+  const [translatedTranscript, setTranslatedTranscript] = useState(null)
+  const [translating, setTranslating] = useState(false)
+  const [translateError, setTranslateError] = useState('')
   const videoRef = useRef()
 
   const colorMap = useMemo(
     () => (transcript ? buildColorMap(transcript) : new Map()),
     [transcript]
   )
+
+  const displayTranscript = translatedTranscript ?? transcript
 
   async function handleAnalyze() {
     setAnalyzing(true)
@@ -29,12 +35,27 @@ export default function App() {
         uploadResult.geminiFile.mimeType,
       )
       setTranscript(segments)
+      setTranslatedTranscript(null)
       setMode('live')
     } catch (err) {
       console.error(err)
       setAnalyzeError(err.message)
     } finally {
       setAnalyzing(false)
+    }
+  }
+
+  async function handleTranslate() {
+    setTranslating(true)
+    setTranslateError('')
+    try {
+      const translated = await translateTranscript(transcript, targetLang)
+      setTranslatedTranscript(translated)
+    } catch (err) {
+      console.error(err)
+      setTranslateError(err.message)
+    } finally {
+      setTranslating(false)
     }
   }
 
@@ -45,6 +66,8 @@ export default function App() {
     setAnalyzing(false)
     setCurrentTime(0)
     setMode('live')
+    setTranslatedTranscript(null)
+    setTranslateError('')
   }
 
   return (
@@ -62,10 +85,10 @@ export default function App() {
             src={uploadResult.localUrl}
             videoRef={videoRef}
             onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
-            segments={transcript}
+            segments={displayTranscript}
             currentTime={currentTime}
             colorMap={colorMap}
-            showOverlay={mode === 'onvideo' && !!transcript}
+            showOverlay={mode === 'onvideo' && !!displayTranscript}
           />
 
           {!transcript && !analyzing && (
@@ -88,18 +111,27 @@ export default function App() {
 
           {transcript && (
             <>
-              <ModeToggle mode={mode} onChange={setMode} onReanalyze={() => { setTranscript(null); setAnalyzeError('') }} />
+              <ModeToggle mode={mode} onChange={setMode} onReanalyze={() => { setTranscript(null); setTranslatedTranscript(null); setAnalyzeError('') }} />
+
+              <TranslationBar
+                targetLang={targetLang}
+                onLangChange={(lang) => { setTargetLang(lang); setTranslatedTranscript(null) }}
+                onTranslate={handleTranslate}
+                translating={translating}
+                translated={!!translatedTranscript}
+                error={translateError}
+              />
 
               {mode === 'live' && (
                 <CaptionDisplay
-                  segments={transcript}
+                  segments={displayTranscript}
                   currentTime={currentTime}
                   colorMap={colorMap}
                 />
               )}
               {mode === 'transcript' && (
                 <Transcript
-                  segments={transcript}
+                  segments={displayTranscript}
                   currentTime={currentTime}
                   colorMap={colorMap}
                 />
@@ -137,6 +169,45 @@ function ModeToggle({ mode, onChange, onReanalyze }) {
       <button style={styles.reanalyzeBtn} onClick={onReanalyze}>
         Re-analyze
       </button>
+    </div>
+  )
+}
+
+function TranslationBar({ targetLang, onLangChange, onTranslate, translating, translated, error }) {
+  const langs = [
+    { key: 'English', label: 'English' },
+    { key: 'Korean',  label: '한국어' },
+  ]
+
+  return (
+    <div style={styles.translationBar}>
+      <div style={styles.translationInner}>
+        <span style={styles.translateLabel}>Translate to:</span>
+        <div style={styles.langGroup}>
+          {langs.map(({ key, label }) => (
+            <button
+              key={key}
+              style={{ ...styles.langBtn, ...(targetLang === key ? styles.langBtnActive : {}) }}
+              onClick={() => onLangChange(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <button
+          style={{ ...styles.translateBtn, ...(translating ? styles.translateBtnDisabled : {}) }}
+          onClick={onTranslate}
+          disabled={translating}
+        >
+          {translating
+            ? <><span style={styles.miniSpinner} /> Translating…</>
+            : translated ? 'Re-translate' : 'Translate'}
+        </button>
+        {translated && !translating && (
+          <span style={styles.translatedBadge}>translated</span>
+        )}
+      </div>
+      {error && <p style={styles.translateError}>{error}</p>}
     </div>
   )
 }
@@ -258,5 +329,83 @@ const styles = {
     fontSize: 13,
     cursor: 'pointer',
     marginTop: 12,
+  },
+  translationBar: {
+    width: '100%',
+    maxWidth: 640,
+  },
+  translationInner: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    background: '#111118',
+    border: '1px solid #1e1e2e',
+    borderRadius: 8,
+    padding: '8px 12px',
+  },
+  translateLabel: {
+    fontSize: 12,
+    color: '#555',
+    flexShrink: 0,
+  },
+  langGroup: {
+    display: 'flex',
+    gap: 4,
+  },
+  langBtn: {
+    padding: '5px 12px',
+    background: 'transparent',
+    color: '#555',
+    border: '1px solid #2a2a3a',
+    borderRadius: 6,
+    fontSize: 12,
+    cursor: 'pointer',
+    transition: 'background 0.15s, color 0.15s',
+  },
+  langBtnActive: {
+    background: '#2a2a3a',
+    color: '#e8e8ed',
+    borderColor: '#3a3a4a',
+  },
+  translateBtn: {
+    marginLeft: 'auto',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '5px 14px',
+    background: '#4f8ef7',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 6,
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  translateBtnDisabled: {
+    background: '#2a3a5a',
+    color: '#4a6a9a',
+    cursor: 'not-allowed',
+  },
+  miniSpinner: {
+    display: 'inline-block',
+    width: 10,
+    height: 10,
+    border: '1.5px solid #4a6a9a',
+    borderTop: '1.5px solid #aac4f7',
+    borderRadius: '50%',
+    animation: 'spin 0.8s linear infinite',
+  },
+  translatedBadge: {
+    fontSize: 11,
+    color: '#4a9a6a',
+    border: '1px solid #1a3a2a',
+    borderRadius: 4,
+    padding: '2px 6px',
+    flexShrink: 0,
+  },
+  translateError: {
+    margin: '6px 0 0',
+    fontSize: 12,
+    color: '#ff453a',
   },
 }

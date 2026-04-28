@@ -178,6 +178,76 @@ export async function analyzeVideo(fileUri, mimeType) {
   return JSON.parse(raw)
 }
 
+const TRANSLATION_SCHEMA = {
+  type: 'ARRAY',
+  items: {
+    type: 'OBJECT',
+    properties: {
+      index: { type: 'NUMBER', description: 'Zero-based index of the original segment' },
+      text:  { type: 'STRING', description: 'Translated text for this segment' },
+    },
+    required: ['index', 'text'],
+  },
+}
+
+/**
+ * Translate transcript segment texts into the target language.
+ * Sends only the text content (no video) and merges results back into full segments.
+ * Returns a new array of segments with translated .text fields.
+ */
+export async function translateTranscript(segments, targetLanguage) {
+  const model = 'gemini-3.1-pro-preview'
+
+  const inputSegments = segments.map((seg, i) => ({ index: i, text: seg.text }))
+
+  const prompt = `You are a professional subtitler. Translate each caption segment below into ${targetLanguage}.
+
+Rules:
+- Translate naturally and conversationally — match the register of the original.
+- Keep the same number of segments; do not merge or split entries.
+- Return a JSON array where each element has:
+    "index": the zero-based position of the segment (integer)
+    "text":  the translated text (string)
+- Translate ONLY the "text" field. Do not alter speaker names, timestamps, or positions.
+- If the text is already in ${targetLanguage}, return it unchanged.
+
+Segments (JSON):
+${JSON.stringify(inputSegments)}`
+
+  const body = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: TRANSLATION_SCHEMA,
+    },
+  }
+
+  const res = await fetch(
+    `${PROXY_BASE}/v1beta/models/${model}:generateContent?key=${API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }
+  )
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Gemini translation failed (${res.status}): ${text}`)
+  }
+
+  const data = await res.json()
+  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text
+  if (!raw) throw new Error('Empty response from Gemini translation')
+
+  const translated = JSON.parse(raw)
+
+  return segments.map((seg, i) => {
+    const match = translated.find((t) => t.index === i)
+    return { ...seg, text: match ? match.text : seg.text }
+  })
+}
+
 function delay(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
