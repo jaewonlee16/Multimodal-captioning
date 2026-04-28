@@ -46,6 +46,9 @@ export default function Transcript({ segments, currentTime = null, colorMap }) {
                 </span>
               </div>
               <p style={styles.text}>{seg.text}</p>
+              {seg.originalText && (
+                <p style={styles.originalText}>{seg.originalText}</p>
+              )}
             </div>
           )
         })}
@@ -109,5 +112,11 @@ const styles = {
     color: '#d0d0da',
     lineHeight: 1.5,
     margin: 0,
+  },
+  originalText: {
+    fontSize: 11,
+    color: '#444',
+    lineHeight: 1.4,
+    margin: '3px 0 0',
   },
 }

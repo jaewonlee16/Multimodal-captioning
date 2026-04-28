@@ -244,7 +244,7 @@ ${JSON.stringify(inputSegments)}`
 
   return segments.map((seg, i) => {
     const match = translated.find((t) => t.index === i)
-    return { ...seg, text: match ? match.text : seg.text }
+    return { ...seg, originalText: seg.text, text: match ? match.text : seg.text }
   })
 }
 

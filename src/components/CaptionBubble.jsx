@@ -79,6 +79,25 @@ export default function CaptionBubble({ seg, currentTime, color }) {
             </span>
           ))}
         </p>
+        {seg.originalText && (() => {
+          const origWords = seg.originalText.split(/\s+/)
+          return (
+            <p style={{ margin: '4px 0 0', fontSize: 10, color: 'rgba(255,255,255,0.38)', lineHeight: 1.4 }}>
+              {origWords.map((word, i) => (
+                <span
+                  key={i}
+                  style={{
+                    opacity: i < visibleCount ? 1 : 0,
+                    transition: i < visibleCount ? 'opacity 0.15s ease' : 'none',
+                  }}
+                >
+                  {word}
+                  {i < origWords.length - 1 ? ' ' : ''}
+                </span>
+              ))}
+            </p>
+          )
+        })()}
       </div>
 
       {/* Triangle pointer aimed back at the speaker's face */}

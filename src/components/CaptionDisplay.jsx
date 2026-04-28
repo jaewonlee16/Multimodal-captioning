@@ -30,6 +30,8 @@ function Caption({ seg, currentTime, color }) {
   // always show at least 1 word the moment the segment becomes active
   const visibleCount = Math.max(1, Math.ceil(progress * words.length))
 
+  const origWords = seg.originalText ? seg.originalText.split(/\s+/) : null
+
   return (
     <div style={styles.caption}>
       <span style={{ ...styles.speaker, color }}>{seg.speaker}</span>
@@ -47,6 +49,22 @@ function Caption({ seg, currentTime, color }) {
           </span>
         ))}
       </p>
+      {origWords && (
+        <p style={styles.originalText}>
+          {origWords.map((word, i) => (
+            <span
+              key={i}
+              style={{
+                opacity: i < visibleCount ? 1 : 0,
+                transition: i < visibleCount ? 'opacity 0.15s ease' : 'none',
+              }}
+            >
+              {word}
+              {i < origWords.length - 1 ? ' ' : ''}
+            </span>
+          ))}
+        </p>
+      )}
     </div>
   )
 }
@@ -87,5 +105,11 @@ const styles = {
     color: '#e8e8ed',
     lineHeight: 1.5,
     margin: 0,
+  },
+  originalText: {
+    fontSize: 12,
+    color: '#555',
+    lineHeight: 1.4,
+    margin: '4px 0 0',
   },
 }
