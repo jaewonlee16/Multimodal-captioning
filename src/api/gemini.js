@@ -112,14 +112,15 @@ const TRANSCRIPT_SCHEMA = {
 const TRANSCRIPT_PROMPT = `\
 Watch this video carefully and produce a speaker-attributed transcript.
 
-For each continuous speech segment:
+Rules:
+- Each entry must contain exactly ONE sentence. Split at natural sentence boundaries (period, \
+question mark, exclamation mark). Never put two sentences in a single entry.
 - Identify who is speaking by their screen position ("left person", "right person", "center person") \
 or by name if visible (name tag, on-screen text, or self-introduction).
-- Record the start and end time in seconds (decimals allowed).
+- Record the start and end time in seconds (decimals allowed) for that single sentence.
 - Transcribe the spoken text verbatim.
 - If two people speak simultaneously, emit two separate entries with overlapping timestamps.
-- Label silence or background-only segments as speaker "none" only if no speech is present \
-(prefer omitting them entirely).
+- Omit silent segments entirely.
 
 Return the result as a JSON array matching the provided schema.`
 

@@ -85,7 +85,7 @@ export default function App() {
 
           {transcript && (
             <>
-              <ModeToggle mode={mode} onChange={setMode} />
+              <ModeToggle mode={mode} onChange={setMode} onReanalyze={() => { setTranscript(null); setAnalyzeError('') }} />
 
               {mode === 'live' ? (
                 <CaptionDisplay
@@ -112,20 +112,25 @@ export default function App() {
   )
 }
 
-function ModeToggle({ mode, onChange }) {
+function ModeToggle({ mode, onChange, onReanalyze }) {
   return (
-    <div style={styles.toggle}>
-      <button
-        style={{ ...styles.tab, ...(mode === 'live' ? styles.tabActive : {}) }}
-        onClick={() => onChange('live')}
-      >
-        Live Captions
-      </button>
-      <button
-        style={{ ...styles.tab, ...(mode === 'transcript' ? styles.tabActive : {}) }}
-        onClick={() => onChange('transcript')}
-      >
-        Full Transcript
+    <div style={styles.toggleRow}>
+      <div style={styles.toggle}>
+        <button
+          style={{ ...styles.tab, ...(mode === 'live' ? styles.tabActive : {}) }}
+          onClick={() => onChange('live')}
+        >
+          Live Captions
+        </button>
+        <button
+          style={{ ...styles.tab, ...(mode === 'transcript' ? styles.tabActive : {}) }}
+          onClick={() => onChange('transcript')}
+        >
+          Full Transcript
+        </button>
+      </div>
+      <button style={styles.reanalyzeBtn} onClick={onReanalyze}>
+        Re-analyze
       </button>
     </div>
   )
@@ -206,12 +211,29 @@ const styles = {
     animation: 'spin 0.8s linear infinite',
     flexShrink: 0,
   },
+  toggleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+    maxWidth: 640,
+  },
   toggle: {
     display: 'flex',
     background: '#1a1a24',
     borderRadius: 8,
     padding: 3,
     gap: 2,
+  },
+  reanalyzeBtn: {
+    marginLeft: 'auto',
+    padding: '7px 14px',
+    background: 'transparent',
+    color: '#555',
+    border: '1px solid #2a2a3a',
+    borderRadius: 6,
+    fontSize: 12,
+    cursor: 'pointer',
   },
   tab: {
     padding: '7px 20px',
