@@ -102,7 +102,7 @@ const TRANSCRIPT_SCHEMA = {
     properties: {
       start:   { type: 'NUMBER', description: 'Segment start time in seconds' },
       end:     { type: 'NUMBER', description: 'Segment end time in seconds' },
-      speaker: { type: 'STRING', description: 'Speaker label (e.g. "left person", "Alice")' },
+      speaker: { type: 'STRING', description: 'Speaker label (e.g. "Speaker 1", "Alice")' },
       text:    { type: 'STRING', description: 'Verbatim spoken text for this segment' },
       position: {
         type: 'OBJECT',
@@ -124,7 +124,7 @@ Watch this video carefully and produce a speaker-attributed transcript.
 Rules:
 - Each entry must contain exactly ONE sentence. Split at natural sentence boundaries (period, \
 question mark, exclamation mark). Never put two sentences in a single entry.
-- Identify who is speaking by their screen position ("left person", "right person", "center person") \
+- Identify who is speaking by canonical speaker id ("speaker 1", "speaker 2", "speaker 3") \
 or by name if visible (name tag, on-screen text, or self-introduction).
 - Record the start and end time in seconds (decimals allowed) for that single sentence.
 - Transcribe the spoken text verbatim.
