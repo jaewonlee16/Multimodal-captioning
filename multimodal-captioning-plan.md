@@ -1,12 +1,8 @@
-# 🎥 Multimodal Speaker Captioning — Hackathon Demo Plan
+# Multimodal Speaker Captioning — Hackathon Demo Plan
 
 ## Concept
 
-A web app that takes a **recorded video** with multiple speakers and produces **real-time, speaker-attributed captions** by combining:
-- **Gemini 1.5 Flash** → identifies who is speaking from video frames (default vision API)
-- **Web Speech API** → converts speech to text (default audio API)
-- **Timeline alignment** → syncs speaker identity with transcript
-- **Swappable API config** → switch vision/audio providers anytime via a config panel without changing code
+A web app that takes a **recorded video** with multiple speakers and produces **speaker-attributed captions** by sending the video directly to **Gemini 2.0 Flash** (multimodal video input). The model handles speaker identification, transcription, and timestamp alignment in a single API call.
 
 Inspired by smart glasses that could caption your world in real time.
 
@@ -15,45 +11,40 @@ Inspired by smart glasses that could caption your world in real time.
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────┐
-│              Uploaded Video File             │
-└────────────────────┬────────────────────────┘
-                     │
-          ┌──────────┴──────────┐
-          │                     │
-          ▼                     ▼
-  ┌───────────────┐    ┌─────────────────┐
-  │  Frame        │    │  Audio          │
-  │  Extractor    │    │  Extractor      │
-  │  (Canvas API) │    │  (Web Audio API)│
-  └───────┬───────┘    └────────┬────────┘
-          │                     │
-          ▼                     ▼
-  ┌───────────────┐    ┌─────────────────┐
-  │  Claude       │    │  Web Speech API │
-  │  Vision API   │    │  (or Whisper)   │
-  │               │    │                 │
-  │ "Person on    │    │ "Hello everyone,│
-  │  left speaking│    │  welcome to..." │
-  │  at 00:03"    │    │  at 00:03       │
-  └───────┬───────┘    └────────┬────────┘
-          │                     │
-          └──────────┬──────────┘
-                     │
-                     ▼
-          ┌─────────────────────┐
-          │   Timeline Merger   │
-          │                     │
-          │  00:03 → Alice: ... │
-          │  00:07 → Bob: ...   │
-          │  00:12 → Both: ...  │
-          └──────────┬──────────┘
-                     │
-                     ▼
-          ┌─────────────────────┐
-          │   Caption Display   │
-          │   (React UI)        │
-          └─────────────────────┘
+┌─────────────────────────────────────┐
+│          Uploaded Video File         │
+└──────────────────┬──────────────────┘
+                   │
+                   ▼
+        ┌─────────────────────┐
+        │  Gemini File API    │
+        │  (video upload)     │
+        └──────────┬──────────┘
+                   │
+                   ▼
+        ┌─────────────────────┐
+        │  Gemini 2.0 Flash   │
+        │  (video analysis)   │
+        │                     │
+        │  sees frames +      │
+        │  hears audio        │
+        │  simultaneously     │
+        └──────────┬──────────┘
+                   │
+                   ▼
+        ┌─────────────────────┐
+        │  JSON Transcript    │
+        │                     │
+        │  00:03 → Alice: ... │
+        │  00:07 → Bob: ...   │
+        │  00:12 → Both: ...  │
+        └──────────┬──────────┘
+                   │
+                   ▼
+        ┌─────────────────────┐
+        │   Caption Display   │
+        │   (React UI)        │
+        └─────────────────────┘
 ```
 
 ---
@@ -63,148 +54,63 @@ Inspired by smart glasses that could caption your world in real time.
 | Layer | Technology | Why |
 |---|---|---|
 | Frontend | React (single JSX artifact) | Fast to build, easy to demo |
-| Frame extraction | HTML5 Canvas API | Browser-native, no install |
-| Audio transcription | **Web Speech API** *(default)* | Free, browser-native, no key needed |
-| Vision AI | **Gemini 1.5 Flash** *(default)* | Generous free tier, fast, multimodal |
-| API switching | Adapter pattern + config panel | Swap APIs without changing core logic |
+| Video analysis | **Gemini 2.0 Flash** (video input) | Handles audio + vision in one call, cheap, fast |
+| File upload | Gemini File API | Supports large videos up to ~1 hour |
 | State management | React `useState` / `useRef` | Simple, no Redux needed |
-
-### Supported APIs (swappable via config)
-
-| Layer | Options |
-|---|---|
-| Vision | Gemini 1.5 Flash, Claude Vision, GPT-4o Vision |
-| Audio | Web Speech API, AssemblyAI, Deepgram |
 
 ---
 
-## Phase 1 — Video Ingestion & Frame Extraction
+## Phase 1 — Video Upload
 
-**Goal:** Load a video and extract frames at regular intervals.
+**Goal:** Upload the video to Gemini's File API and get a file URI back.
 
 **Steps:**
 1. User uploads a `.mp4` / `.webm` video via file input
-2. Video is loaded into a hidden `<video>` element
-3. A `<canvas>` element captures frames every **1 second**
-4. Each frame is converted to `base64` JPEG (compressed for API efficiency)
-5. Frames are stored in an array: `[{ timestamp: 3.0, imageBase64: "..." }, ...]`
+2. Frontend sends the file to Gemini File API (`POST https://generativelanguage.googleapis.com/upload/v1beta/files`)
+3. API returns a `file.uri` used in the next step
+4. Show upload progress to the user
 
-**Key consideration:** Compress frames to ~512×288px before sending to Claude to minimize token usage and latency.
-
----
-
-## Phase 2 — Audio Transcription (Swappable)
-
-**Goal:** Extract a timestamped transcript from the video's audio.
-
-**Adapter pattern — each audio provider implements the same interface:**
-```js
-// All audio adapters implement this signature:
-async function transcribe(audioSource, config, onResult) => {
-  // calls onResult({ text, timestamp }) as results arrive
-}
-
-// Adapters:
-// audioAdapters.webspeech(source, config, cb)   ← DEFAULT
-// audioAdapters.assemblyai(source, config, cb)
-// audioAdapters.deepgram(source, config, cb)
-```
-
-**Default: Web Speech API**
-- Play video through the browser
-- Pipe audio to `SpeechRecognition`
-- Capture interim + final results with timestamps
-- Free, no API key, English-optimized
-
-**Option B — AssemblyAI:**
-- Stream audio to AssemblyAI real-time endpoint
-- Returns word-level timestamps + speaker diarization built-in
-- Requires API key, free trial credits available
-
-**Option C — Deepgram:**
-- Similar to AssemblyAI, very low latency
-- Speaker labels available on paid tier
+**Key consideration:** Files uploaded via the File API are available for 48 hours. For videos under ~20MB, inline base64 also works and skips the upload step.
 
 ---
 
-## Phase 3 — Vision Speaker Identification (Swappable)
+## Phase 2 — Video Analysis (Single API Call)
 
-**Goal:** For each frame, identify who is speaking using a pluggable vision adapter.
+**Goal:** Send the uploaded video to Gemini and get a full speaker-attributed, timestamped transcript.
 
-**Adapter pattern — each vision provider implements the same interface:**
-```js
-// All vision adapters implement this signature:
-async function identifySpeaker(base64Frame, config) => {
-  return {
-    speakers: ["left person"],   // who is speaking
-    speakerCount: 2,             // total visible
-    confidence: "high"           // high | medium | low
-  }
-}
+**Prompt sent to Gemini:**
+```
+Watch this video and return a speaker-attributed transcript.
 
-// Adapters:
-// visionAdapters.gemini(frame, config)   ← DEFAULT
-// visionAdapters.claude(frame, config)
-// visionAdapters.gpt4o(frame, config)
+For each speech segment, identify who is speaking by their position
+(e.g. "left person", "right person", "center person") or by name
+if visible (name tags, introductions, etc.).
+
+Respond ONLY with a JSON array:
+[
+  {
+    "start": 3.0,
+    "end": 6.5,
+    "speaker": "left person",
+    "text": "Welcome everyone, I'm glad you could join us."
+  },
+  ...
+]
+
+If two people speak simultaneously, include both as separate entries
+with overlapping timestamps.
 ```
 
-**Prompt sent to vision model (same across all adapters):**
-```
-You are analyzing a video frame for a captioning system.
-Look at the people in this image and identify who appears to be speaking
-(open mouth, animated face, gesturing while talking).
-
-Respond ONLY with JSON:
-{
-  "speakers": ["left person", "right person"],  // who is speaking now
-  "speakerCount": 2,                            // total people visible
-  "confidence": "high"                          // high / medium / low
-}
-
-If you can identify people by name (name tags etc.), use their names.
-Otherwise use: "left person", "right person", "center person".
-```
-
-**Default: Gemini 1.5 Flash**
-- Endpoint: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash`
-- Free tier: generous daily quota, no billing required for hackathon scale
-- Accepts base64 image inline in the request body
-
-**Optimization for speed:**
-- Sample a frame every **2 seconds** (configurable)
-- Cache speaker identity between frames (same face = same label)
-- Compress frames to ~512×288px before sending
+**Why this works:**
+- Gemini correlates lip movement, voice, and visual identity simultaneously
+- No separate frame extraction or audio pipeline needed
+- No timeline alignment step — the model handles it natively
 
 ---
 
-## Phase 4 — Timeline Alignment
+## Phase 3 — Caption Display UI
 
-**Goal:** Merge transcript + speaker identity into a unified caption track.
-
-**Algorithm:**
-```
-for each transcript_segment (text, start_time, end_time):
-    find frame closest to start_time
-    speaker = frame.identifiedSpeaker
-    
-    captions.push({
-        time: start_time,
-        speaker: speaker,
-        text: transcript_segment.text,
-        color: speakerColorMap[speaker]
-    })
-```
-
-**Handling simultaneous speech:**
-- If Claude identifies **2+ speakers** in a frame during speech → split caption into two rows
-- Label both: `Alice: [transcript A]` and `Bob: [transcript B]`
-- Use overlap detection: if two transcript segments overlap in time, flag as simultaneous
-
----
-
-## Phase 5 — Caption Display UI
-
-**Goal:** Show captions in real time as video plays.
+**Goal:** Show captions synced to video playback using the pre-computed transcript.
 
 **UI Layout:**
 ```
@@ -216,10 +122,10 @@ for each transcript_segment (text, start_time, end_time):
 │  Processing: ████████░░ 80%         │
 ├─────────────────────────────────────┤
 │                                     │
-│  🟦 Alice  "Welcome everyone, I'm   │
-│             glad you could join..."  │
+│  Alice  "Welcome everyone, I'm      │
+│          glad you could join..."    │
 │                                     │
-│  🟧 Bob    "Thanks for having us"   │
+│  Bob    "Thanks for having us"      │
 │                                     │
 └─────────────────────────────────────┘
 ```
@@ -228,13 +134,22 @@ for each transcript_segment (text, start_time, end_time):
 - **Live mode** — captions appear as video plays, synced to timestamp
 - **Full transcript** — scrollable log of everything said, speaker-colored
 
+**Sync logic:**
+```js
+// On each video timeupdate event:
+const active = transcript.filter(
+  seg => currentTime >= seg.start && currentTime <= seg.end
+)
+setActiveCaptions(active)
+```
+
 ---
 
 ## Demo Flow (Hackathon Presentation)
 
 1. **Upload video** — drag & drop a pre-recorded conversation (2–3 people)
-2. **Processing screen** — show progress bar as frames are analyzed
-3. **Playback** — video plays with live captions appearing below
+2. **Processing screen** — show progress bar while Gemini analyzes the video
+3. **Playback** — video plays with live captions appearing below, synced to speech
 4. **Reveal transcript** — show full speaker-attributed transcript
 5. **The pitch** — *"Imagine this running on your glasses in real time"*
 
@@ -244,30 +159,30 @@ for each transcript_segment (text, start_time, end_time):
 
 | Scenario | Handling |
 |---|---|
-| Person looks away / mouth not visible | Carry forward last known speaker |
-| Simultaneous speech | Show two caption rows simultaneously |
+| Person looks away / mouth not visible | Gemini uses voice + context to maintain speaker label |
+| Simultaneous speech | Two caption rows with overlapping timestamps |
 | No face detected | Label as "Unknown Speaker" |
-| Low confidence from vision API | Show caption without speaker label |
+| Low confidence | Gemini may label as "unidentified speaker" |
 | Silence | No caption displayed |
 
 ---
 
 ## Limitations to Acknowledge (Judges love honesty)
 
-- **Web Speech API** doesn't give perfect timestamps — slight sync drift possible
-- **True speaker diarization** from audio alone is not implemented (vision-based only)
+- **Batch, not streaming** — full video must upload before captions appear (pre-processed, then played back with synced captions)
+- **File size** — Gemini File API supports large files but upload time adds latency
 - **Real-time on glasses** would need edge inference (e.g., local Whisper + compact vision model)
-- Works best with **front-facing, well-lit** video for mouth detection
+- Works best with **front-facing, well-lit** video for reliable speaker identification
 
 ---
 
 ## Future / "What's Next" Slide
 
-- Replace Web Speech API with **Whisper** for multilingual support
+- Replace batch processing with **live streaming** to a local vision model for true real-time
 - Add **face registration** — upload photos of speakers for named identification
 - Run on **edge hardware** (e.g., Raspberry Pi + glasses cam) for true real-time
 - **Translation mode** — caption in a different language than spoken
-- **Emotion detection** — add tone indicators (😄 excited, 😟 concerned)
+- **Emotion detection** — add tone indicators (excited, concerned)
 
 ---
 
@@ -275,27 +190,15 @@ for each transcript_segment (text, start_time, end_time):
 
 ```
 multimodal-captions/
-├── App.jsx                    # Main React component + config panel
+├── App.jsx                    # Main React component
 ├── components/
-│   ├── VideoUploader.jsx      # Drag & drop upload
-│   ├── FrameExtractor.jsx     # Canvas-based frame capture
-│   ├── CaptionDisplay.jsx     # Live caption UI
-│   ├── Transcript.jsx         # Full transcript view
-│   └── ConfigPanel.jsx        # API switcher UI
-├── adapters/
-│   ├── vision/
-│   │   ├── index.js           # Adapter router
-│   │   ├── gemini.js          # Gemini 1.5 Flash (DEFAULT)
-│   │   ├── claude.js          # Claude Vision
-│   │   └── gpt4o.js           # GPT-4o Vision
-│   └── audio/
-│       ├── index.js           # Adapter router
-│       ├── webspeech.js       # Web Speech API (DEFAULT)
-│       ├── assemblyai.js      # AssemblyAI
-│       └── deepgram.js        # Deepgram
+│   ├── VideoUploader.jsx      # Drag & drop upload + Gemini File API
+│   ├── CaptionDisplay.jsx     # Live caption UI synced to video
+│   └── Transcript.jsx         # Full transcript view
+├── api/
+│   └── gemini.js              # Gemini File API upload + video analysis
 └── utils/
-    ├── frameExtract.js        # Canvas frame sampling
-    └── timelineAlign.js       # Merge frames + transcript
+    └── captionSync.js         # Match transcript segments to video timestamp
 ```
 
 ---
@@ -304,12 +207,9 @@ multimodal-captions/
 
 | Task | Time |
 |---|---|
-| Video upload + frame extraction | 1 hour |
-| Web Speech API integration | 1 hour |
-| Gemini Vision API integration | 1.5 hours |
-| Adapter pattern + config panel UI | 1 hour |
-| Timeline alignment logic | 1.5 hours |
-| UI / caption display | 2 hours |
+| Video upload + Gemini File API integration | 1.5 hours |
+| Gemini video analysis + prompt tuning | 1.5 hours |
+| Caption display + video sync logic | 2 hours |
+| UI / transcript view + speaker colors | 1.5 hours |
 | Testing + polish | 1 hour |
-| **Total** | **~9 hours** |
-
+| **Total** | **~7.5 hours** |
