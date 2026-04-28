@@ -2,7 +2,7 @@
 
 ## Concept
 
-A web app that takes a **recorded video** with multiple speakers and produces **speaker-attributed captions** by sending the video directly to **Gemini 2.0 Flash** (multimodal video input). The model handles speaker identification, transcription, and timestamp alignment in a single API call.
+A web app that takes a **recorded video** with multiple speakers and produces **speaker-attributed captions** by sending the video directly to **Gemini 3.1 Pro Preview** (multimodal video input). The model handles speaker identification, transcription, and timestamp alignment in a single API call.
 
 Inspired by smart glasses that could caption your world in real time.
 
@@ -23,7 +23,7 @@ Inspired by smart glasses that could caption your world in real time.
                    │
                    ▼
         ┌─────────────────────┐
-        │  Gemini 2.0 Flash   │
+        │Gemini 3.1 Pro Preview│
         │  (video analysis)   │
         │                     │
         │  sees frames +      │
@@ -54,7 +54,7 @@ Inspired by smart glasses that could caption your world in real time.
 | Layer | Technology | Why |
 |---|---|---|
 | Frontend | React (single JSX artifact) | Fast to build, easy to demo |
-| Video analysis | **Gemini 2.0 Flash** (video input) | Handles audio + vision in one call, cheap, fast |
+| Video analysis | **Gemini 3.1 Pro Preview** (video input) | Handles audio + vision in one call, cheap, fast |
 | File upload | Gemini File API | Supports large videos up to ~1 hour |
 | State management | React `useState` / `useRef` | Simple, no Redux needed |
 
