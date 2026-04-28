@@ -1,7 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import VideoUploader from './components/VideoUploader'
+import CaptionDisplay from './components/CaptionDisplay'
 import Transcript from './components/Transcript'
 import { analyzeVideo } from './api/gemini'
+import { buildColorMap } from './utils/speakerColors'
 
 export default function App() {
   const [uploadResult, setUploadResult] = useState(null)
@@ -9,7 +11,13 @@ export default function App() {
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeError, setAnalyzeError] = useState('')
   const [currentTime, setCurrentTime] = useState(0)
+  const [mode, setMode] = useState('live') // 'live' | 'transcript'
   const videoRef = useRef()
+
+  const colorMap = useMemo(
+    () => (transcript ? buildColorMap(transcript) : new Map()),
+    [transcript]
+  )
 
   async function handleAnalyze() {
     setAnalyzing(true)
@@ -20,6 +28,7 @@ export default function App() {
         uploadResult.geminiFile.mimeType,
       )
       setTranscript(segments)
+      setMode('live')
     } catch (err) {
       console.error(err)
       setAnalyzeError(err.message)
@@ -34,6 +43,7 @@ export default function App() {
     setAnalyzeError('')
     setAnalyzing(false)
     setCurrentTime(0)
+    setMode('live')
   }
 
   return (
@@ -74,7 +84,23 @@ export default function App() {
           )}
 
           {transcript && (
-            <Transcript segments={transcript} currentTime={currentTime} />
+            <>
+              <ModeToggle mode={mode} onChange={setMode} />
+
+              {mode === 'live' ? (
+                <CaptionDisplay
+                  segments={transcript}
+                  currentTime={currentTime}
+                  colorMap={colorMap}
+                />
+              ) : (
+                <Transcript
+                  segments={transcript}
+                  currentTime={currentTime}
+                  colorMap={colorMap}
+                />
+              )}
+            </>
           )}
 
           <button style={styles.resetBtn} onClick={handleReset}>
@@ -82,6 +108,25 @@ export default function App() {
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+function ModeToggle({ mode, onChange }) {
+  return (
+    <div style={styles.toggle}>
+      <button
+        style={{ ...styles.tab, ...(mode === 'live' ? styles.tabActive : {}) }}
+        onClick={() => onChange('live')}
+      >
+        Live Captions
+      </button>
+      <button
+        style={{ ...styles.tab, ...(mode === 'transcript' ? styles.tabActive : {}) }}
+        onClick={() => onChange('transcript')}
+      >
+        Full Transcript
+      </button>
     </div>
   )
 }
@@ -111,7 +156,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: 24,
+    gap: 20,
     padding: '32px 0',
   },
   video: {
@@ -161,14 +206,36 @@ const styles = {
     animation: 'spin 0.8s linear infinite',
     flexShrink: 0,
   },
+  toggle: {
+    display: 'flex',
+    background: '#1a1a24',
+    borderRadius: 8,
+    padding: 3,
+    gap: 2,
+  },
+  tab: {
+    padding: '7px 20px',
+    background: 'transparent',
+    color: '#666',
+    border: 'none',
+    borderRadius: 6,
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'background 0.15s, color 0.15s',
+  },
+  tabActive: {
+    background: '#2a2a3a',
+    color: '#e8e8ed',
+  },
   resetBtn: {
     padding: '8px 20px',
     background: 'transparent',
-    color: '#555',
-    border: '1px solid #2a2a3a',
+    color: '#444',
+    border: '1px solid #222',
     borderRadius: 8,
     fontSize: 13,
     cursor: 'pointer',
-    marginTop: 8,
+    marginTop: 12,
   },
 }

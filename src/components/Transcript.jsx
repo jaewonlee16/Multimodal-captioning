@@ -1,24 +1,5 @@
-const SPEAKER_COLORS = [
-  '#4f8ef7', // blue
-  '#ff9f0a', // orange
-  '#30d158', // green
-  '#bf5af2', // purple
-  '#ff453a', // red
-  '#64d2ff', // cyan
-  '#ffd60a', // yellow
-]
-
-const speakerColorCache = new Map()
-let colorIndex = 0
-
-function colorForSpeaker(speaker) {
-  const key = speaker.toLowerCase().trim()
-  if (!speakerColorCache.has(key)) {
-    speakerColorCache.set(key, SPEAKER_COLORS[colorIndex % SPEAKER_COLORS.length])
-    colorIndex++
-  }
-  return speakerColorCache.get(key)
-}
+import { useEffect, useRef } from 'react'
+import { colorForSpeaker } from '../utils/speakerColors'
 
 function fmtTime(seconds) {
   const m = Math.floor(seconds / 60)
@@ -26,23 +7,33 @@ function fmtTime(seconds) {
   return `${m}:${s}`
 }
 
-export default function Transcript({ segments, currentTime = null }) {
+export default function Transcript({ segments, currentTime = null, colorMap }) {
+  const activeRef = useRef(null)
+
+  const activeIndex = currentTime === null
+    ? -1
+    : segments.findIndex((seg) => currentTime >= seg.start && currentTime <= seg.end)
+
+  useEffect(() => {
+    if (activeRef.current) {
+      activeRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [activeIndex])
+
   if (!segments?.length) return null
 
   return (
     <div style={styles.container}>
-      <h2 style={styles.heading}>Transcript</h2>
+      <h2 style={styles.heading}>Full Transcript</h2>
       <div style={styles.list}>
         {segments.map((seg, i) => {
-          const color = colorForSpeaker(seg.speaker)
-          const isActive =
-            currentTime !== null &&
-            currentTime >= seg.start &&
-            currentTime <= seg.end
+          const color = colorForSpeaker(colorMap, seg.speaker)
+          const isActive = i === activeIndex
 
           return (
             <div
               key={i}
+              ref={isActive ? activeRef : null}
               style={{
                 ...styles.segment,
                 ...(isActive ? styles.segmentActive : {}),
@@ -71,7 +62,7 @@ const styles = {
   heading: {
     fontSize: 13,
     fontWeight: 600,
-    color: '#666',
+    color: '#555',
     textTransform: 'uppercase',
     letterSpacing: '0.08em',
     marginBottom: 12,
@@ -80,6 +71,10 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: 2,
+    maxHeight: 420,
+    overflowY: 'auto',
+    borderRadius: 8,
+    paddingRight: 4,
   },
   segment: {
     padding: '10px 14px',
@@ -87,9 +82,10 @@ const styles = {
     background: '#1a1a24',
     borderLeft: '3px solid transparent',
     transition: 'background 0.15s, border-color 0.15s',
+    cursor: 'default',
   },
   segmentActive: {
-    background: '#1e2035',
+    background: '#1e2038',
     borderLeftColor: '#4f8ef7',
   },
   meta: {
