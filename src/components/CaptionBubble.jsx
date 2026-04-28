@@ -1,4 +1,4 @@
-export default function CaptionBubble({ seg, currentTime, color }) {
+export default function CaptionBubble({ seg, currentTime, color, facePreview = null }) {
   const words = seg.text.split(/\s+/)
   const duration = seg.end - seg.start
   const progress = duration > 0 ? (currentTime - seg.start) / duration : 1
@@ -55,15 +55,37 @@ export default function CaptionBubble({ seg, currentTime, color }) {
       >
         <div
           style={{
-            color,
-            fontSize: 10,
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
             marginBottom: 4,
           }}
         >
-          {seg.speaker}
+          {facePreview && (
+            <img
+              src={facePreview}
+              alt={seg.speaker}
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: '50%',
+                objectFit: 'cover',
+                border: `1px solid ${color}`,
+                flexShrink: 0,
+              }}
+            />
+          )}
+          <span
+            style={{
+              color,
+              fontSize: 10,
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+            }}
+          >
+            {seg.speaker}
+          </span>
         </div>
         <p style={{ margin: 0, fontSize: 13, color: '#fff', lineHeight: 1.45 }}>
           {words.map((word, i) => (

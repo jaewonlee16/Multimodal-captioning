@@ -93,6 +93,7 @@ export default function App() {
             currentTime={currentTime}
             colorMap={colorMap}
             showOverlay={mode === 'onvideo' && !!displayTranscript}
+            registeredFaces={registeredFaces}
           />
 
           {!transcript && !analyzing && (

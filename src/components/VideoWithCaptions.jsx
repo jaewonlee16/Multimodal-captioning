@@ -15,6 +15,7 @@ export default function VideoWithCaptions({
   currentTime,
   colorMap,
   showOverlay,
+  registeredFaces = [],
 }) {
   const active =
     showOverlay && segments
@@ -46,6 +47,9 @@ export default function VideoWithCaptions({
               seg={seg}
               currentTime={currentTime}
               color={colorForSpeaker(colorMap, seg.speaker)}
+              facePreview={registeredFaces.find(
+                (f) => f.name.toLowerCase() === seg.speaker.toLowerCase()
+              )?.preview ?? null}
             />
           ))}
         </div>
