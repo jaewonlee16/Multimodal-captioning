@@ -148,16 +148,21 @@ export async function analyzeVideo(fileUri, mimeType, registeredFaces = []) {
   // Prepend face identity pairs so Gemini learns names before watching the video
   if (registeredFaces.length > 0) {
     const preamble =
-      'The following speakers have been pre-identified. When you see one of them in the video, ' +
-      'use their exact name as the "speaker" value — do not use a positional label like ' +
-      '"left person" for them. If a person in the video does not match any registered face, ' +
-      'fall back to a positional label ("left person", "right person", "center person").'
+      'The following images show people who appear in the video. Use their exact name ' +
+      'as the "speaker" value whenever you identify them speaking.'
     parts.push({ text: preamble })
 
     for (const face of registeredFaces) {
       parts.push({ inlineData: { mimeType: face.mimeType, data: face.base64 } })
       parts.push({ text: `The person in the image above is ${face.name}.` })
     }
+
+    parts.push({
+      text:
+        'IMPORTANT: Transcribe ALL speech from ALL people in the video — do not skip or omit ' +
+        'any speaker. For anyone whose face does not match a registered image above, use a ' +
+        'positional label ("left person", "right person", "center person") as their speaker name.',
+    })
   }
 
   parts.push({ fileData: { mimeType, fileUri } })
