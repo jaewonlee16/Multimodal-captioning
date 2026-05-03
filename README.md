@@ -2,6 +2,8 @@
 
 A browser-based app that uploads a video to the Gemini File API, uses **Gemini 3.1 Pro** to produce a speaker-attributed transcript, and displays synced captions in three modes — live bar, on-video overlays, and a full scrollable transcript. Supports face registration for named speaker identification and real-time caption translation.
 
+**[Presentation & Demo Videos](https://github.com/jaewonlee16/Multimodal-captioning/tree/master/presentation)**
+
 ## Features
 
 - **Video upload** — drag-and-drop or file picker; resumable XHR upload with a progress bar. Accepted formats: MP4, WebM, MOV, MKV.
