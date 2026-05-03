@@ -1,5 +1,7 @@
 # Speaker Captions
 
+> Built in one day at the **AI Builder Hackathon** by Samsung with Google DeepMind — April 28, 2025.
+
 A browser-based app that uploads a video to the Gemini File API, uses **Gemini 3.1 Pro** to produce a speaker-attributed transcript, and displays synced captions in three modes — live bar, on-video overlays, and a full scrollable transcript. Supports face registration for named speaker identification and real-time caption translation.
 
 **[Presentation & Demo Videos](https://github.com/jaewonlee16/Multimodal-captioning/tree/master/presentation)**
